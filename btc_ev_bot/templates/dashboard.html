@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trading Bot Dashboard</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            background-color: #212529;
+            color: #dee2e6;
+        }
+        .card {
+            background-color: #343a40;
+            border: 1px solid #495057;
+        }
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #adb5bd;
+        }
+        .table {
+            font-size: 0.9rem;
+        }
+        .table th {
+            color: #ced4da;
+        }
+        .profit { color: #28a745; }
+        .loss { color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="mb-4 text-center">Live Strategy Dashboard</h1>
+
+        <!-- Performance Stats -->
+        <div class="row text-center mb-4">
+            <div class="col-md-4 col-lg-2 mb-3">
+                <div class="card p-3">
+                    <div class="stat-value {{ 'profit' if stats.total_pnl.startswith('$-') == False else 'loss' }}">{{ stats.total_pnl }}</div>
+                    <div class="stat-label">Total PnL</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2 mb-3">
+                <div class="card p-3">
+                    <div class="stat-value">{{ stats.win_rate }}</div>
+                    <div class="stat-label">Win Rate</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2 mb-3">
+                <div class="card p-3">
+                    <div class="stat-value">{{ stats.profit_factor }}</div>
+                    <div class="stat-label">Profit Factor</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2 mb-3">
+                <div class="card p-3">
+                    <div class="stat-value">{{ stats.total_trades }}</div>
+                    <div class="stat-label">Total Trades</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2 mb-3">
+                <div class="card p-3">
+                    <div class="stat-value profit">{{ stats.avg_win }}</div>
+                    <div class="stat-label">Average Win</div>
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-2 mb-3">
+                <div class="card p-3">
+                    <div class="stat-value loss">{{ stats.avg_loss }}</div>
+                    <div class="stat-label">Average Loss</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equity Curve Plot -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div id="plot"></div>
+            </div>
+        </div>
+
+        <!-- Trades Table -->
+        <div class="card">
+            <div class="card-header">
+                <h3>Recent Trades</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    {{ table|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var fig = {{ plot|safe }};
+        Plotly.newPlot('plot', fig.data, fig.layout, {responsive: true});
+    </script>
+</body>
+</html>

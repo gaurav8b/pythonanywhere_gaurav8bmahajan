@@ -1,0 +1,18 @@
+{
+    "initial_capital": 100000,
+    "current_capital": 100000,
+    "position": {
+        "symbol": "BTCUSDT",
+        "direction": "short",
+        "entry_price": 105130.26,
+        "contracts": 1.426801379545718,
+        "entry_timestamp": "2025-06-18T20:32:00.099493-04:00"
+    },
+    "closed_trades": [],
+    "equity_history": [
+        {
+            "timestamp": "2025-06-18T12:09:33.909257-04:00",
+            "equity": 100000
+        }
+    ]
+}

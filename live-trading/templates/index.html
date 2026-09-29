@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-t">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>V20 Live Trading Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        .grid-container { display: grid; grid-template-columns: repeat(4, 1fr); grid-gap: 20px; }
+        .card { background-color: #1e1e1e; border-radius: 8px; padding: 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .card-title { font-size: 1.1em; color: #bbbbbb; margin-top: 0; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .kpi-value { font-size: 2em; font-weight: bold; color: #ffffff; }
+        .kpi-value.positive { color: #4caf50; }
+        .kpi-value.negative { color: #f44336; }
+        .position-card { grid-column: span 2; }
+        .equity-card { grid-column: span 4; }
+        .trades-card { grid-column: span 4; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+        th { font-size: 0.9em; color: #888; text-transform: uppercase; }
+        .status-bar { padding: 15px; background-color: #1e1e1e; border-radius: 8px; margin-bottom: 20px; text-align: center; font-size: 1.2em; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>V20 Live Trading Dashboard</h1>
+    <div id="status-bar" class="status-bar">Connecting...</div>
+
+    <div class="grid-container">
+        <div class="card"><h2 class="card-title">Net P&L ($)</h2><p id="net-pnl" class="kpi-value">$0.00</p></div>
+        <div class="card"><h2 class="card-title">Sharpe Ratio</h2><p id="sharpe-ratio" class="kpi-value">0.00</p></div>
+        <div class="card"><h2 class="card-title">Max Drawdown (%)</h2><p id="max-drawdown" class="kpi-value">0.00%</p></div>
+        <div class="card"><h2 class="card-title">Win Rate (%)</h2><p id="win-rate" class="kpi-value">0.00%</p></div>
+
+        <div class="card position-card">
+            <h2 class="card-title">Open Position</h2>
+            <div id="open-position-details">
+                <p>System is currently flat.</p>
+            </div>
+        </div>
+
+        <div class.card">
+            <h2 class="card-title">Total Trades</h2>
+            <p id="total-trades" class="kpi-value">0</p>
+        </div>
+        <div class="card">
+            <h2 class="card-title">Profit Factor</h2>
+            <p id="profit-factor" class="kpi-value">N/A</p>
+        </div>
+
+        <div class="card equity-card">
+            <h2 class="card-title">Equity Curve</h2>
+            <canvas id="equityCurveChart"></canvas>
+        </div>
+
+        <div class="card trades-card">
+            <h2 class="card-title">Closed Trades Log (Last 20)</h2>
+            <table id="closed-trades-table">
+                <thead>
+                    <tr>
+                        <th>Timestamp</th><th>Direction</th><th>Contracts</th><th>Entry</th><th>Exit</th>
+                        <th>Net P&L</th><th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    let equityChart;
+
+    function initializeChart() {
+        const ctx = document.getElementById('equityCurveChart').getContext('2d');
+        equityChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{
+                label: 'Portfolio Equity', data: [], borderColor: 'rgb(54, 162, 235)',
+                backgroundColor: 'rgba(54, 162, 235, 0.2)', borderWidth: 2, pointRadius: 0, tension: 0.1
+            }]},
+            options: {
+                scales: {
+                    x: { type: 'time', time: { unit: 'hour' }, ticks: { color: '#e0e0e0' }},
+                    y: { ticks: { callback: (value) => '$' + value.toLocaleString(), color: '#e0e0e0' }}
+                },
+                plugins: { legend: { labels: { color: '#e0e0e0' }}}
+            }
+        });
+    }
+
+    function updateDashboard() {
+        fetch('/dashboard_data')
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('status-bar').textContent = `Status: ERROR - ${data.error}`;
+                    return;
+                }
+
+                document.getElementById('status-bar').textContent = `Status: ${data.status}`;
+                const metrics = data.performance_metrics;
+                const pnlElement = document.getElementById('net-pnl');
+                const pnlValue = parseFloat(String(metrics['Net P&L ($)']).replace(/[$,]/g, ''));
+                pnlElement.textContent = metrics['Net P&L ($)'];
+                pnlElement.className = 'kpi-value ' + (pnlValue >= 0 ? 'positive' : 'negative');
+
+                document.getElementById('sharpe-ratio').textContent = metrics['Sharpe Ratio'];
+                document.getElementById('max-drawdown').textContent = metrics['Max Drawdown (%)'];
+                document.getElementById('win-rate').textContent = metrics['Win Rate (%)'];
+                document.getElementById('total-trades').textContent = metrics['Total Trades'];
+                document.getElementById('profit-factor').textContent = metrics['Profit Factor'];
+
+                const posDetails = document.getElementById('open-position-details');
+                if (data.open_position && Object.keys(data.open_position).length > 0) {
+                    const pnlPos = parseFloat(data.open_position.unrealized_pnl.replace(/,/g, '')) >= 0;
+                    posDetails.innerHTML = `
+                        <strong>Direction:</strong> ${data.open_position.direction.toUpperCase()}<br>
+                        <strong>Entry Time:</strong> ${data.open_position.entry_time}<br>
+                        <strong>Entry Price:</strong> ${data.open_position.entry_price}<br>
+                        <strong>Contracts:</strong> ${data.open_position.contracts}<br>
+                        <strong>Unrealized P&L:</strong> <span style="font-weight:bold;" class="${pnlPos ? 'positive' : 'negative'}">${data.open_position.unrealized_pnl}</span>`;
+                } else {
+                    posDetails.innerHTML = '<p>System is currently flat.</p>';
+                }
+
+                const tradesTableBody = document.querySelector('#closed-trades-table tbody');
+                tradesTableBody.innerHTML = '';
+                data.closed_trades.slice().reverse().forEach(trade => {
+                    const pnlVal = parseFloat(trade.net_pnl);
+                    const pnlClass = pnlVal > 0 ? 'positive' : (pnlVal < 0 ? 'negative' : '');
+                    tradesTableBody.innerHTML += `
+                        <tr><td>${trade.timestamp}</td><td>${trade.direction}</td><td>${trade.contracts}</td>
+                            <td>${trade.entry_price}</td><td>${trade.exit_price}</td><td class="${pnlClass}">${trade.net_pnl}</td>
+                            <td>${trade.exit_reason}</td></tr>`;
+                });
+
+                if (data.equity_curve.timestamps.length) {
+                    equityChart.data.labels = data.equity_curve.timestamps;
+                    equityChart.data.datasets[0].data = data.equity_curve.equity;
+                    equityChart.update('none');
+                }
+            })
+            .catch(error => console.error('Error fetching dashboard data:', error));
+    }
+
+    window.onload = () => {
+        initializeChart();
+        updateDashboard();
+        setInterval(updateDashboard, 5000);
+    };
+</script>
+</body>
+</html>
